@@ -6,7 +6,7 @@ import json
 import re
 import tweepy
 import twitter_info # still need this in the same directory, filled out
-
+ 
 consumer_key = twitter_info.consumer_key
 consumer_secret = twitter_info.consumer_secret
 access_token = twitter_info.access_token
@@ -21,9 +21,9 @@ api = tweepy.API(auth, parser=tweepy.parsers.JSONParser())
 CACHE_FNAME = "twitter_cache.json"
 try:
     cache_file = open(CACHE_FNAME,'r')
-        cache_contents = cache_file.read()
-        cache_file.close()
-        CACHE_DICTION = json.loads(cache_contents)
+    cache_contents = cache_file.read()
+    cache_file.close()
+    CACHE_DICTION = json.loads(cache_contents)
 except:
     CACHE_DICTION = {}
 
@@ -33,21 +33,19 @@ except:
 # Your function must cache data it retrieves and rely on a cache file!
 
 
-def get_tweets(word = "umsi"):
-    if word in CACHE_DICTION:
-        return CACHE_DICTION[word]
+def get_tweets():
+    if 'umsi' in CACHE_DICTION:
+        print('using cached data')
+        twitter_results = CACHE_DICTION['umsi']
     else:
-        tweets = api.search(kev = word)
-        time_text = []
-
-        for kevin in range(0, len(time_text)- 1):
-            first[time_text[kevin]] = time_text[kevin + 1]
-        CACHE_DICTION[word] = tweets
+        print('getting data from internet')
+        twitter_results = api.user_timeline('umsi')
+        CACHE_DICTION['umsi'] = twitter_results
         
-        file_w = open(CACHE_FNAME, "w")
-        file_w.write(json.dumps(CACHE_DICTION))
-        file_w.close()
-    return tweets        
+        f = open(CACHE_FNAME, "w")
+        f.write(json.dumps(CACHE_DICTION))
+        f.close()
+    return twitter_results        
 ##YOUR CODE HERE
 
 
@@ -76,6 +74,20 @@ def get_tweets(word = "umsi"):
 
 
 #  5- Use the database connection to commit the changes to the database
+conn = sqlite3.connect('twitter.sqlite')
+cur = conn.cursor()
+
+cur.execute('DROP TABLE IF EXISTS Tweets')
+
+cur.execute('CREATE TABLE Tweets (tweet_id TEXT, author TEXT, time_posted TIMESTAMP, tweet_text TEXT, retweets NUMBER)')
+
+the_tweets = get_tweets()
+
+for tw in the_tweets:
+    tup = tw['id'], tw['user']['screen_name'], tw['created_at'], tw['text'], tw['retweet_count'] #key to project
+    cur.execute('INSERT INTO Tweets (tweet_id, author, time_posted, tweet_text, retweets) VALUES (?, ?, ?, ?, ?)', tup)
+
+conn.commit()
 
 # You can check out whether it worked in the SQLite browser! (And with the tests.)
 
@@ -91,7 +103,18 @@ def get_tweets(word = "umsi"):
 # Select the author of all of the tweets (the full rows/tuples of information) that have been retweeted MORE
 # than 2 times, and fetch them into the variable more_than_2_rts.
 # Print the results
+cur.execute("SELECT time_posted, tweet_text from Tweets")
+all_ = cur.fetchall()
+for k in all_:
+    print (k[0] + " - " + k[1] + "\n")
 
+ 
+#('select author that has been retweeted more than two times')
+cur.execute("SELECT author FROM Tweets WHERE retweets > 2")
+more_than_2_rts = cur.fetchall()
+print ('more_than_2_rts - %s' % set(more_than_2_rts))
+
+cur.close()        
 
 
 if __name__ == "__main__":
